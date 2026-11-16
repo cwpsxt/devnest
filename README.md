@@ -5,7 +5,7 @@ Windows 上的开发环境一键安装与清理工具：选好软件点一下，
 一个 exe，不用安装，双击运行（需要管理员权限）。
 
 > **当前状态：0.1.0，还没有发布过。**
-> 安装流程目前只在模拟环境里跑通，真实 Windows 上的安装由仓库里的真机安装测试（`integration` 工作流）验证，该工作流全部通过之前，请不要在重要的机器上使用。
+> 真机安装测试（`integration` 工作流）的 14 组已在 GitHub 的 Windows Server 2025 机器上全部通过：每组真装，检查命令、服务、端口和密码，再卸载并检查残留。普通的 Windows 10 / 11 上还没有大范围用过，建议先在不重要的机器上试用。
 
 ## 能做什么
 
@@ -66,7 +66,7 @@ C:\ProgramData\DevNest\
 
 ## 已知局限
 
-- 真实 Windows 上的安装尚未全部验证（见文首的状态说明）。
+- 自动化的真机测试跑在 GitHub 的 Windows Server 2025 机器上，和家用的 Windows 10 / 11 在预装软件、权限和杀毒软件上有差别。
 - Git、Docker Desktop、.NET SDK、Rust、Apifox、PyCharm 不在自动化的真机测试范围内。
 - Redis、RabbitMQ、Erlang、MinGW-w64 只有 GitHub 一个下载来源，国内网络慢或连不上时，到「设置」里填一个 GitHub 加速前缀。
 - Docker Desktop 需要系统开启 WSL2 或 Hyper-V，安装后可能要重启。
