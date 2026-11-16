@@ -292,8 +292,7 @@ func init() {
 		},
 		Options: []core.Option{
 			portOption("port", "端口", "5432", "PostgreSQL"),
-			{Key: "password", Label: "postgres 账号的密码", Type: "password", Default: "postgres", MinLen: 4,
-				Help: "默认密码很弱，只适合本机开发"},
+			passwordOption("postgres 账号的密码", 4, ""),
 			lanOption,
 		},
 		Requires: []core.Dep{{ID: "vcredist"}},
@@ -351,7 +350,7 @@ func init() {
 		},
 		Options: []core.Option{
 			portOption("port", "端口", "3307", "MariaDB"),
-			{Key: "password", Label: "root 密码", Type: "password", Default: "root", MinLen: 4, Help: "默认密码很弱，只适合本机开发"},
+			passwordOption("root 密码", 4, ""),
 			lanOption,
 		},
 		Requires: []core.Dep{{ID: "vcredist"}},

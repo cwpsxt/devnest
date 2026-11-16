@@ -285,8 +285,7 @@ func init() {
 		},
 		Options: []core.Option{
 			portOption("port", "端口", "3306", "MySQL"),
-			{Key: "password", Label: "root 密码", Type: "password", Default: "root", MinLen: 4,
-				Help: "默认是 root，只适合本机开发；建议改成自己的密码"},
+			passwordOption("root 密码", 4, ""),
 			{Key: "service", Label: "服务名", Type: "text", Default: "MySQL", Pattern: `^[A-Za-z][A-Za-z0-9_]{1,30}$`,
 				Help: "字母开头，只含字母、数字、下划线"},
 			lanOption,
@@ -323,7 +322,7 @@ func init() {
 		}},
 		Options: []core.Option{
 			portOption("port", "端口", "6379", "Redis"),
-			{Key: "password", Label: "访问密码", Type: "password", Default: "", Help: "留空表示不设密码（只允许本机访问时可以留空）"},
+			passwordOption("访问密码", 0, "清空表示不设密码（只允许本机访问时可以不设）"),
 			lanOption,
 		},
 		Probe:    []string{"redis-server.exe", "redis-cli.exe", "redis.conf"},
@@ -353,7 +352,7 @@ func init() {
 		Options: []core.Option{
 			portOption("http", "浏览器端口（HTTP）", "7474", "HTTP"),
 			portOption("bolt", "Bolt 端口", "7687", "Bolt"),
-			{Key: "password", Label: "neo4j 用户的密码", Type: "password", Default: "neo4j123", MinLen: 8, Help: "至少 8 位，不能是 neo4j"},
+			passwordOption("neo4j 用户的密码", 8, "至少 8 位，不能是 neo4j"),
 			lanOption,
 		},
 		Requires: []core.Dep{jdk21},

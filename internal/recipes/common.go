@@ -14,6 +14,19 @@ import (
 var lanOption = core.Option{Key: "lan", Label: "允许局域网其他电脑访问", Type: "bool", Default: "false",
 	Help: "默认只有本机能连。勾选后会监听所有网卡并放行 Windows 防火墙；有密码的软件必须改掉默认密码（至少 8 位）"}
 
+// dbPassword is the default password of every database account the catalogue
+// sets up. It only suits a machine nobody else can reach, which is why the
+// "lan" option refuses an option's default password.
+const dbPassword = "12345678"
+
+func passwordOption(label string, minLen int, rule string) core.Option {
+	help := "默认是 " + dbPassword + "，只适合本机开发"
+	if rule != "" {
+		help += "；" + rule
+	}
+	return core.Option{Key: "password", Label: label, Type: "password", Default: dbPassword, MinLen: minLen, Help: help}
+}
+
 func portOption(key, label, def, portName string) core.Option {
 	return core.Option{Key: key, Label: label, Type: "port", Default: def, PortName: portName}
 }
