@@ -274,33 +274,6 @@ func init() {
 		},
 	})
 
-	dbeaver := "dbeaver-ce-26.2.5-windows-x86_64.zip"
-	core.Register(&core.Package{
-		ID: "dbeaver", Name: "DBeaver", Category: "tool",
-		Desc:     "免费的数据库图形客户端，能连 MySQL、PostgreSQL、MongoDB 等；自带 Java 运行环境",
-		Homepage: "https://dbeaver.io/",
-		Releases: []core.Release{{Version: "26.2.5", File: dbeaver, Size: 126280946, URLs: []string{
-			"https://dbeaver.io/files/26.2.5/" + dbeaver,
-			gh("dbeaver/dbeaver", "26.2.5", dbeaver),
-		}}},
-		Probe: []string{"dbeaver.exe"},
-		Steps: 1,
-		Install: func(c *core.Ctx) error {
-			if err := unzipInstall(c); err != nil {
-				return err
-			}
-			c.Shortcut("DBeaver", c.J("dbeaver.exe"), "")
-			c.Info("启动", "开始菜单 → DevNest → DBeaver")
-			c.Info("第一次连数据库", "会提示下载对应的驱动，需要联网")
-			return nil
-		},
-		Detect: core.Detect{
-			Uninstall: []string{`^DBeaver`},
-			Dirs:      []string{`%ProgramFiles%\DBeaver`, `%LOCALAPPDATA%\DBeaver`},
-			UserDirs:  []string{`%APPDATA%\DBeaverData`},
-		},
-	})
-
 	core.Register(&core.Package{
 		ID: "apifox", Name: "Apifox", Category: "tool",
 		Desc:     "接口调试和文档工具（类似 Postman）",

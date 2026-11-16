@@ -102,7 +102,7 @@ type KV struct {
 type Package struct {
 	ID       string
 	Name     string
-	Category string // lang | db | mw | ide | tool | dep
+	Category string // lang | db | dbtool | mw | ide | tool | dep
 	Desc     string
 	Homepage string
 	Releases []Release

@@ -175,7 +175,7 @@ net:
 	}
 	c.Info("连接地址", fmt.Sprintf("mongodb://127.0.0.1:%d", port))
 	c.Info("账号", "没有开启登录验证，只有本机能连")
-	c.Info("客户端", "安装包里不带命令行客户端 mongosh，可以用 DBeaver、MongoDB Compass 或程序里的驱动来连")
+	c.Info("客户端", "安装包里不带命令行客户端 mongosh，可以用 MongoDB Compass（在「数据库工具」里）或程序里的驱动来连")
 	c.Info("服务名", svc)
 	c.Info("配置文件", cfg)
 	c.Info("数据目录", c.DataDir)

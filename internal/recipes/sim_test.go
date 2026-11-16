@@ -623,7 +623,7 @@ func TestCatalogueIsWellFormed(t *testing.T) {
 		if len(p.Probe) == 0 && p.Category != "dep" {
 			t.Errorf("%s: no probe files, so a broken install would go unnoticed", p.ID)
 		}
-		if !strings.Contains("lang db mw ide tool dep", p.Category) {
+		if !slices.Contains([]string{"lang", "db", "dbtool", "mw", "ide", "tool", "dep"}, p.Category) {
 			t.Errorf("%s: unknown category %q", p.ID, p.Category)
 		}
 		for _, r := range p.Releases {

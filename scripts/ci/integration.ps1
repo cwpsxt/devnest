@@ -463,13 +463,45 @@ function Test-Search {
 
 function Test-Tools {
   Invoke-Cli install vscode
-  Invoke-Cli install dbeaver
   Update-ProcessEnv
   Assert-Ours code
   Assert-Shell 'code --version' '(?m)^\d+\.\d+\.\d+'
-  if (-not (Test-Path (Join-Path (Get-Install dbeaver).dir 'dbeaver.exe'))) { throw 'dbeaver.exe is missing' }
-  Remove-Package dbeaver
   Remove-Package vscode
+}
+
+# The database GUI clients: the program is there, its Start menu shortcut
+# points at it, and uninstalling takes both away.
+function Test-DbTools {
+  $exes = [ordered]@{
+    'dbeaver'         = 'dbeaver.exe'
+    'heidisql'        = 'heidisql.exe'
+    'sqlitebrowser'   = 'DB Browser for SQLite.exe'
+    'tinyrdm'         = 'Tiny RDM.exe'
+    'mongodb-compass' = 'MongoDBCompass.exe'
+    'elasticvue'      = 'elasticvue.exe'
+  }
+  $wsh = New-Object -ComObject WScript.Shell
+  foreach ($id in $exes.Keys) {
+    Invoke-Cli install $id
+    $info = Get-Install $id
+    $exe = Join-Path $info.dir $exes[$id]
+    if (-not (Test-Path -LiteralPath $exe)) { throw "${id}: $($exes[$id]) is missing" }
+    $links = @($info.shortcuts)
+    if ($links.Count -eq 0) { throw "${id}: no Start menu shortcut" }
+    foreach ($lnk in $links) {
+      if (-not (Test-Path -LiteralPath $lnk)) { throw "${id}: shortcut $lnk is missing" }
+      $target = $wsh.CreateShortcut($lnk).TargetPath
+      if ($target -ne $exe) { throw "${id}: shortcut $lnk points at '$target', not $exe" }
+    }
+    Write-Host "OK  $id is in place: $exe"
+  }
+  foreach ($id in $exes.Keys) {
+    $links = @((Get-Install $id).shortcuts)
+    Remove-Package $id
+    foreach ($lnk in $links) {
+      if (Test-Path -LiteralPath $lnk) { throw "${id}: shortcut $lnk is still there after uninstall" }
+    }
+  }
 }
 
 function Test-JetBrains {
@@ -509,6 +541,7 @@ $tests = @{
   kafka     = { Test-Kafka }
   search    = { Test-Search }
   tools     = { Test-Tools }
+  dbtools   = { Test-DbTools }
   jetbrains = { Test-JetBrains }
   mirrors   = { Test-Mirrors }
 }

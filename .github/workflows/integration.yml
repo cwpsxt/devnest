@@ -52,7 +52,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: ${{ fromJSON(inputs.groups || '["scan","clean","mirrors","java","lang","mysql","mariadb","postgres","nosql","web","kafka","search","tools","jetbrains"]') }}
+        group: ${{ fromJSON(inputs.groups || '["scan","clean","mirrors","java","lang","mysql","mariadb","postgres","nosql","web","kafka","search","tools","dbtools","jetbrains"]') }}
     env:
       # 这些机器在海外：先试软件官方地址，再试国内镜像
       DEVNEST_SOURCES: official

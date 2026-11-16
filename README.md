@@ -9,7 +9,7 @@ Windows 上的开发环境一键安装与清理工具：选好软件点一下，
 
 ## 能做什么
 
-- **一键安装**：31 个常用开发软件，装完即可用（服务已启动、密码已设置、命令已加入 PATH）。
+- **一键安装**：36 个常用开发软件，装完即可用（服务已启动、密码已设置、命令已加入 PATH）。
 - **套装**：Java 后端、前端、Python、Go、数据库、微服务中间件、图数据库，一次装一组。
 - **一键清理**：扫描机器上已有的安装（注册表卸载项、Windows 服务、环境变量、PATH、残留目录，以及被改到别处的 npm 全局目录设置），列出来由你勾选，确认后才动手。数据库的数据目录默认不勾选，删除前先备份。
 - **多版本切换**：JDK、Python、Node.js、Go、PHP 可以同时装多个版本，点一下切换默认版本。
@@ -24,8 +24,9 @@ Windows 上的开发环境一键安装与清理工具：选好软件点一下，
 | 语言与运行环境 | JDK（8 / 11 / 17 / 21 / 25）、Python、Node.js（可带 pnpm、yarn）、Go、PHP（可带 Composer）、.NET SDK、Rust、MinGW-w64（GCC） |
 | 构建工具 | Maven、Gradle、Git |
 | 数据库 | MySQL（8.0 / 8.4）、MariaDB、PostgreSQL、MongoDB、Redis、Neo4j |
+| 数据库工具 | DBeaver、HeidiSQL、DB Browser for SQLite、Tiny RDM（Redis）、MongoDB Compass、Elasticvue（Elasticsearch） |
 | 中间件与服务器 | Nginx、Tomcat、RabbitMQ（自动带 Erlang）、Kafka、Elasticsearch、Nacos |
-| 开发工具 | IntelliJ IDEA、PyCharm、VS Code、DBeaver、Apifox、Docker Desktop |
+| 开发工具 | IntelliJ IDEA、PyCharm、VS Code、Apifox、Docker Desktop |
 | 运行库 | VC++ 运行库（需要它的软件会自动带上） |
 
 依赖会自动处理：装 Maven、Tomcat、Kafka、Neo4j 等会先装好合适版本的 JDK，装 RabbitMQ 会先装 Erlang。
@@ -116,7 +117,7 @@ devnestcli root D:\DevNest                    查看或设置安装目录
 ### 只跑某几组真机测试
 
 在 Actions 页手动运行 `integration`，`groups` 里填要跑的组，比如 `["mysql","java"]`。全部的组：
-`scan` `clean` `mirrors` `java` `lang` `mysql` `mariadb` `postgres` `nosql` `web` `kafka` `search` `tools` `jetbrains`。
+`scan` `clean` `mirrors` `java` `lang` `mysql` `mariadb` `postgres` `nosql` `web` `kafka` `search` `tools` `dbtools` `jetbrains`。
 
 每组跑完会把任务日志打包上传，失败时下载 `logs-<组名>` 查看。
 

@@ -26,6 +26,7 @@ export function fmtTime(iso: string): string {
 export const CATEGORIES: { id: PackageView['category']; name: string }[] = [
   { id: 'lang', name: '语言与运行时' },
   { id: 'db', name: '数据库' },
+  { id: 'dbtool', name: '数据库工具' },
   { id: 'mw', name: '中间件' },
   { id: 'ide', name: '开发工具' },
   { id: 'tool', name: '构建与其他' },

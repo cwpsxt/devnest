@@ -58,7 +58,7 @@ export interface Installed {
 export interface PackageView {
   id: string
   name: string
-  category: 'lang' | 'db' | 'mw' | 'ide' | 'tool' | 'dep'
+  category: 'lang' | 'db' | 'dbtool' | 'mw' | 'ide' | 'tool' | 'dep'
   desc: string
   homepage: string
   notes: string[]
