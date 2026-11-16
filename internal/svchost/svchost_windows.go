@@ -5,6 +5,7 @@ package svchost
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -54,7 +55,17 @@ func (h *host) openLog() {
 		os.Remove(h.cfg.LogFile + ".1")
 		os.Rename(h.cfg.LogFile, h.cfg.LogFile+".1")
 	}
-	h.log, _ = os.OpenFile(h.cfg.LogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	// Not O_APPEND: Go would open the handle with append-only access, and the
+	// Cygwin/MSYS2 runtime (Redis for Windows is built on it) treats an
+	// inherited handle without plain write access as read-only, so everything
+	// the program prints would be lost. The program inherits this very handle
+	// and shares its position, so both sides keep appending.
+	f, err := os.OpenFile(h.cfg.LogFile, os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return
+	}
+	f.Seek(0, io.SeekEnd)
+	h.log = f
 }
 
 // newJob creates a job object that kills every process in it when closed, so

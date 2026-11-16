@@ -169,7 +169,10 @@ func installRedis(c *core.Ctx) error {
 	c.Step("注册并启动服务")
 	err = c.WrapService(core.WrapSpec{
 		Name: "Redis", DisplayName: "Redis " + c.Rel.Version,
-		Exe: c.J("redis-server.exe"), Args: []string{core.Slash(conf)}, Dir: c.Dir,
+		// The config file is named relative to the working folder: this build
+		// runs on the MSYS2 runtime, where Redis takes "C:/..." for a relative
+		// path and looks for it under the current folder.
+		Exe: c.J("redis-server.exe"), Args: []string{"redis.conf"}, Dir: c.Dir,
 		StopTimeout: 20, Ports: []core.PortRef{{Name: "Redis", Port: port}},
 	})
 	if err != nil {
