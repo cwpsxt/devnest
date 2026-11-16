@@ -103,7 +103,10 @@ func installNode(c *core.Ctx) error {
 		c.Step("安装 pnpm 和 yarn")
 		// --prefix keeps them in this version's folder even where an old
 		// installation moved npm's global folder (npm_config_prefix, .npmrc).
-		args := []string{"install", "-g", "pnpm", "yarn", "--prefix", c.Dir, "--no-fund", "--no-audit"}
+		// pnpm runs on Windows only after its install script has put pnpm.exe
+		// in place; npm 11 warns about scripts not allowed by name (a later npm
+		// may skip them), and npm 10 ignores the flag.
+		args := []string{"install", "-g", "pnpm", "yarn", "--prefix", c.Dir, "--allow-scripts=pnpm,yarn", "--no-fund", "--no-audit"}
 		if c.OptBool("mirror") {
 			args = append(args, "--registry=https://registry.npmmirror.com/")
 		}

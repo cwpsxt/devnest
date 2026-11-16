@@ -318,6 +318,9 @@ func TestPnpmAndYarnGoIntoTheNodeVersionFolder(t *testing.T) {
 	if i := slices.Index(args, "--prefix"); i < 0 || i+1 == len(args) || args[i+1] != dir {
 		t.Errorf("npm install -g should get the version folder %s as its prefix; ran npm %v", dir, args)
 	}
+	if !slices.Contains(args, "--allow-scripts=pnpm,yarn") {
+		t.Errorf("npm install -g should allow the install scripts of pnpm and yarn; ran npm %v", args)
+	}
 }
 
 func TestCleanRefusesIDsNotFromTheLastScan(t *testing.T) {
