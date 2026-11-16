@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"devnest/internal/platform"
 )
 
 // Release is one downloadable version of a package.
@@ -69,7 +71,11 @@ type Detect struct {
 	DataDirs    []string // like Dirs, but holding user data: backed up instead of deleted
 	UserDirs    []string // per-user config/cache folders: listed but not ticked by default
 	RegKeys     []string
-	Procs       []string // process image names, lower case
+	// RegHomes lists the install folders a key in RegKeys vouches for. While
+	// one of them is still on the disk and is not being removed, the key is
+	// a live registration and not a leftover, and it is not ticked.
+	RegHomes func(p platform.Platform, key string) []string
+	Procs    []string // process image names, lower case
 }
 
 type KV struct {

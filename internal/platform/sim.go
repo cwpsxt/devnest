@@ -401,10 +401,62 @@ func (s *Sim) RegKeyExists(path string) bool {
 	return false
 }
 
+// under reports whether a registry path lies below a key.
+func regUnder(path, key string) bool {
+	return len(path) > len(key) && strings.EqualFold(path[:len(key)+1], key+`\`)
+}
+
+func (s *Sim) RegSubKeys(path string) []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	seen := map[string]bool{}
+	var out []string
+	add := func(full string) {
+		if !regUnder(full, path) {
+			return
+		}
+		name, _, _ := strings.Cut(full[len(path)+1:], `\`)
+		if name != "" && !seen[strings.ToLower(name)] {
+			seen[strings.ToLower(name)] = true
+			out = append(out, name)
+		}
+	}
+	for k := range s.st.RegKeys {
+		add(k)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// SimSetReg writes a value into the simulated registry, creating the key and
+// the keys above it.
+func (s *Sim) SimSetReg(path, name, value string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := len(path); i > 0; i = strings.LastIndex(path[:i], `\`) {
+		if strings.Count(path[:i], `\`) < 2 {
+			break
+		}
+		s.st.RegKeys[path[:i]] = true
+	}
+	s.st.RegValues[path+`\\`+name] = value
+	s.save()
+}
+
 func (s *Sim) RegDeleteTree(path string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.st.RegKeys, path)
+	for k := range s.st.RegKeys {
+		if regUnder(k, path) {
+			delete(s.st.RegKeys, k)
+		}
+	}
+	for k := range s.st.RegValues {
+		if regUnder(k, path) {
+			delete(s.st.RegValues, k)
+		}
+	}
 	keep := s.st.Uninstall[:0]
 	for _, e := range s.st.Uninstall {
 		if !strings.EqualFold(e.KeyPath, path) {

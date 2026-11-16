@@ -65,6 +65,18 @@ func uninstallPython(c *core.Ctx) error {
 	return err
 }
 
+// pythonHomes reads the install folders registered below a PythonCore key:
+// <key>\<version>\InstallPath, default value (PEP 514).
+func pythonHomes(p platform.Platform, key string) []string {
+	var out []string
+	for _, tag := range p.RegSubKeys(key) {
+		if dir, ok := p.RegGetString(key+`\`+tag+`\InstallPath`, ""); ok && dir != "" {
+			out = append(out, filepath.Clean(dir))
+		}
+	}
+	return out
+}
+
 // ---- Node.js ----
 
 func nodeRelease(v, label string, size int64, sha string) core.Release {
@@ -339,6 +351,7 @@ func init() {
 			Dirs:      []string{`?:\Python3?`, `?:\Python3??`, `%LOCALAPPDATA%\Programs\Python`, `%ProgramFiles%\Python3?`, `%ProgramFiles%\Python3??`},
 			UserDirs:  []string{`%APPDATA%\pip`, `%LOCALAPPDATA%\pip`, `%APPDATA%\Python`},
 			RegKeys:   []string{`HKLM\SOFTWARE\Python\PythonCore`, `HKCU\SOFTWARE\Python\PythonCore`},
+			RegHomes:  pythonHomes,
 		},
 	})
 

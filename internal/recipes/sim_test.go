@@ -173,6 +173,51 @@ func TestAFolderAServiceRunsFromIsLeftAlone(t *testing.T) {
 	}
 }
 
+// The machines GitHub runs the tests on have Pythons that only the registry
+// knows about. Deleting the registration and leaving the files hides them
+// from everything that looks there, and removes nothing.
+func TestTheRegistrationOfAPythonThatStaysIsLeftAlone(t *testing.T) {
+	const key = `HKLM\SOFTWARE\Python\PythonCore`
+	m, sim := newSim(t)
+	home := filepath.Join(t.TempDir(), "toolcache", "Python", "3.12.10", "x64")
+	os.MkdirAll(home, 0o755)
+	os.WriteFile(filepath.Join(home, "python.exe"), []byte("sim"), 0o644)
+	sim.SimSetReg(key+`\3.12\InstallPath`, "", home+string(filepath.Separator))
+
+	find := func() *core.Finding {
+		found, err := m.Scan([]string{"python"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i := range found {
+			if found[i].Kind == "reg" && found[i].Detail == key {
+				return &found[i]
+			}
+		}
+		t.Fatalf("the scan did not list %s: %+v", key, found)
+		return nil
+	}
+	if f := find(); f.Checked || !strings.Contains(f.Note, home) {
+		t.Errorf("the key should be unticked and name the installation: %+v", *f)
+	}
+
+	// Once the files are gone the key is a leftover, and cleaning removes it
+	// together with what is below it.
+	os.RemoveAll(home)
+	f := find()
+	if !f.Checked {
+		t.Fatalf("the key of a Python that is gone should be ticked: %+v", *f)
+	}
+	id, err := m.Clean([]string{f.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	settle(t, m, "clean", id)
+	if sim.RegKeyExists(key) || len(sim.RegSubKeys(key)) > 0 {
+		t.Errorf("the key is still there after cleaning")
+	}
+}
+
 func TestCleanRefusesIDsNotFromTheLastScan(t *testing.T) {
 	m, _ := newSim(t)
 	if _, err := m.Clean([]string{"made-up"}); err == nil {

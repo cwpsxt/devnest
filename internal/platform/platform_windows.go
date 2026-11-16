@@ -533,6 +533,20 @@ func (w *winPlatform) RegGetString(path, name string) (string, bool) {
 	return v, err == nil
 }
 
+func (w *winPlatform) RegSubKeys(path string) []string {
+	root, sub, err := parseReg(path)
+	if err != nil {
+		return nil
+	}
+	k, err := registry.OpenKey(root, sub, registry.ENUMERATE_SUB_KEYS)
+	if err != nil {
+		return nil
+	}
+	defer k.Close()
+	names, _ := k.ReadSubKeyNames(-1)
+	return names
+}
+
 func regDeleteTree(root registry.Key, sub string) error {
 	k, err := registry.OpenKey(root, sub, registry.ENUMERATE_SUB_KEYS|registry.QUERY_VALUE)
 	if err != nil {

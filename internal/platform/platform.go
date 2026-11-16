@@ -100,6 +100,8 @@ type Platform interface {
 	RegKeyExists(path string) bool
 	RegDeleteTree(path string) error
 	RegGetString(path, name string) (string, bool)
+	// RegSubKeys lists the names of the keys directly below a key.
+	RegSubKeys(path string) []string
 
 	Processes() ([]ProcInfo, error)
 	KillProcess(pid int) error

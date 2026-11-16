@@ -384,6 +384,36 @@ func (s *scanner) spareServiceFolders() {
 	}
 }
 
+// spareLiveRegistrations unticks registry keys that describe an installation
+// which is still on the disk and not on the list. Deleting such a key does
+// not remove the software; it only hides it from the programs that look it
+// up there, and leaves the machine in a state installers do not expect.
+func (s *scanner) spareLiveRegistrations() {
+	removing := func(path string) bool {
+		for _, f := range s.out {
+			if f.Checked && (f.Kind == "dir" || f.Kind == "data") && isUnder(path, f.target) {
+				return true
+			}
+		}
+		return false
+	}
+	for i := range s.out {
+		f := &s.out[i]
+		pkg := Lookup(f.PkgID)
+		if f.Kind != "reg" || !f.Checked || pkg == nil || pkg.Detect.RegHomes == nil {
+			continue
+		}
+		for _, home := range pkg.Detect.RegHomes(s.m.P, f.target) {
+			if fi, err := os.Stat(home); err != nil || !fi.IsDir() || removing(home) {
+				continue
+			}
+			f.Checked = false
+			f.Note = strings.TrimSpace(f.Note + " 这里登记的安装（" + home + "）还在，而它不在清理清单中，所以默认不勾选")
+			break
+		}
+	}
+}
+
 // serviceUnder names a Windows service whose program lies in the folder.
 func serviceUnder(p platform.Platform, dir string) string {
 	services, _ := p.Services()
@@ -439,6 +469,7 @@ func (m *Manager) Scan(ids []string) ([]Finding, error) {
 		s.scanPkg(pkg)
 	}
 	s.spareServiceFolders()
+	s.spareLiveRegistrations()
 	pkgOrder := map[string]int{}
 	for i, pkg := range Packages() {
 		pkgOrder[pkg.ID] = i
