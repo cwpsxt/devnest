@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -300,6 +301,31 @@ func (c *Ctx) WaitPort(port int, d time.Duration) error {
 	}
 }
 
+// waitServicePort waits for the port of a service that has just been started,
+// and gives up at once when the service stops in the meantime.
+func (c *Ctx) waitServicePort(name string, port int, d time.Duration) error {
+	if c.Sim() {
+		return nil
+	}
+	deadline := time.Now().Add(d)
+	for {
+		if _, ok := c.P.PortOwner(port); ok {
+			return nil
+		}
+		if sv, ok := c.P.Service(name); ok && sv.State == "stopped" {
+			return fmt.Errorf("服务 %s 启动后又停止了，端口 %d 没有开始监听", name, port)
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("等了 %s，端口 %d 还是没有开始监听", d, port)
+		}
+		select {
+		case <-c.Done():
+			return c.Err()
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
+}
+
 type simRegistrar interface {
 	SimRegisterService(name, binary string, ports ...int)
 }
@@ -374,15 +400,56 @@ func (c *Ctx) WrapService(w WrapSpec) error {
 func (c *Ctx) StartService(name string, port int) error {
 	c.Logf("启动服务 %s", name)
 	if err := c.P.StartService(name); err != nil {
+		c.showLogTails()
 		return err
 	}
 	if port > 0 {
-		if err := c.WaitPort(port, 3*time.Minute); err != nil {
+		if err := c.waitServicePort(name, port, 3*time.Minute); err != nil {
+			c.showLogTails()
 			return err
 		}
 		c.Logf("端口 %d 已开始监听", port)
 	}
 	return nil
+}
+
+// showLogTails copies the last lines of the software's own log files into the
+// task log, so that a service which refuses to start says why.
+func (c *Ctx) showLogTails() {
+	for _, path := range c.Inst.Logs {
+		lines := tailLines(path, 15)
+		if len(lines) == 0 {
+			continue
+		}
+		c.Logf("%s 的最后几行：", path)
+		for _, l := range lines {
+			c.Logf("  | %s", l)
+		}
+	}
+}
+
+// tailLines returns the last n non-empty lines of a text file.
+func tailLines(path string, n int) []string {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil
+	}
+	defer f.Close()
+	const most = 8 << 10
+	if fi, err := f.Stat(); err == nil && fi.Size() > most {
+		f.Seek(-most, io.SeekEnd)
+	}
+	b, _ := io.ReadAll(f)
+	var out []string
+	for _, l := range strings.Split(strings.ToValidUTF8(string(b), "?"), "\n") {
+		if l = strings.TrimRight(l, "\r \t"); l != "" {
+			out = append(out, l)
+		}
+	}
+	if len(out) > n {
+		out = out[len(out)-n:]
+	}
+	return out
 }
 
 // Shortcut creates a Start menu shortcut and, if enabled in the settings, a
