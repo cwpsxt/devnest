@@ -5,6 +5,7 @@ import { api, errText } from '../api'
 import { busy, confirmDialog, fail, refreshCatalog, refreshOverview, state, toast } from '../store'
 import type { Settings } from '../types'
 import { PRODUCT_NAME, STUDIO, fmtBytes } from '../util'
+import wechatQr from '../assets/wechat-qr.png'
 
 const saved = ref<Settings | null>(null)
 const form = reactive<Settings>({ root: '', githubProxy: '', desktopShortcuts: true })
@@ -160,6 +161,11 @@ async function open(path: string) {
       <dd>{{ STUDIO.name }}</dd>
       <dt>备案号</dt>
       <dd><a @click="api.openUrl(STUDIO.icpUrl).catch(fail)">{{ STUDIO.icp }}</a></dd>
+      <dt>微信</dt>
+      <dd>
+        <img class="qr" :src="wechatQr" alt="作者微信二维码" />
+        <div class="faint small">用微信扫码加作者好友</div>
+      </dd>
       <dt>系统</dt>
       <dd>{{ state.overview?.os }}</dd>
       <dt>权限</dt>

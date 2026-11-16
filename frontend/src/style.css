@@ -536,6 +536,13 @@ table.table {
   word-break: break-all;
 }
 
+.kv .qr {
+  display: block;
+  width: 140px;
+  height: 140px;
+  margin: 2px 0 4px;
+}
+
 .empty {
   text-align: center;
   color: var(--muted);

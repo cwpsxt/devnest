@@ -168,3 +168,7 @@ go test ./internal/...
 城关区智牍网络技术工作室（个体工商户）
 
 备案号：[陇ICP备2026010995号-1](https://beian.miit.gov.cn/)
+
+用微信扫码加作者好友：
+
+<img src="frontend/src/assets/wechat-qr.png" alt="作者微信二维码" width="180">
