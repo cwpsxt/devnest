@@ -51,7 +51,9 @@ function Update-ProcessEnv {
   $raw = [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames
   foreach ($key in @($machine, $user)) {
     foreach ($name in $key.GetValueNames()) {
-      if (-not $name -or $name -ieq 'Path') { continue }
+      # USERNAME in the machine key is SYSTEM, and PowerShell builds its own
+      # PSModulePath; a new terminal takes neither from here.
+      if (-not $name -or $name -in 'Path', 'USERNAME', 'PSModulePath') { continue }
       $value = [Environment]::ExpandEnvironmentVariables([string]$key.GetValue($name, '', $raw))
       [Environment]::SetEnvironmentVariable($name, $value, 'Process')
     }
@@ -130,18 +132,27 @@ function Assert-Http([string]$Url, [string]$Pattern = '', [int]$Seconds = 120) {
 }
 
 # Checks, through Windows itself, that everything the package registered runs.
-function Assert-Healthy([string]$Id) {
+# A service that was just restarted gets $Seconds to open its ports.
+function Assert-Healthy([string]$Id, [int]$Seconds = 120) {
   $rows = @(Get-CliJson services --json | Where-Object { $_.pkgId -eq $Id })
   if ($rows.Count -eq 0) { throw "$Id registered no service" }
   foreach ($row in $rows) {
     $svc = Get-Service -Name $row.name -ErrorAction SilentlyContinue
     if (-not $svc) { throw "service $($row.name) does not exist" }
-    if ($svc.Status -ne 'Running') { throw "service $($row.name) is $($svc.Status)" }
     if ($svc.StartType -ne 'Automatic') { throw "service $($row.name) start type is $($svc.StartType)" }
-    foreach ($p in $row.ports) {
-      if (-not (Test-Port $p.port)) { throw "port $($p.port) of $($row.name) does not answer" }
+    $started = Get-Date
+    while ($true) {
+      $svc.Refresh()
+      $closed = @($row.ports | Where-Object { $_ -and -not (Test-Port $_.port) } | ForEach-Object { $_.port })
+      if ($svc.Status -eq 'Running' -and $closed.Count -eq 0) { break }
+      if (((Get-Date) - $started).TotalSeconds -ge $Seconds) {
+        if ($svc.Status -ne 'Running') { throw "service $($row.name) is $($svc.Status)" }
+        throw "service $($row.name) runs, but port $($closed -join ', ') does not answer after $Seconds s"
+      }
+      Start-Sleep -Seconds 2
     }
-    Write-Host "OK  service $($row.name) is running, ports: $(($row.ports | ForEach-Object { $_.port }) -join ', ')"
+    $took = [int]((Get-Date) - $started).TotalSeconds
+    Write-Host "OK  service $($row.name) is running, ports: $(($row.ports | ForEach-Object { $_.port }) -join ', ') (ready after $took s)"
   }
 }
 
@@ -156,6 +167,8 @@ function Remove-Package([string]$Ref, [string]$Data = 'delete') {
     if (Get-Service -Name $name -ErrorAction SilentlyContinue) { throw "service $name still there after uninstall" }
   }
   foreach ($p in $info.ports) {
+    $tries = 0
+    while ((Test-Port $p.port) -and $tries -lt 10) { Start-Sleep -Seconds 1; $tries++ }
     if (Test-Port $p.port) { throw "port $($p.port) still answers after uninstall" }
   }
   foreach ($name in $info.env) {
@@ -171,6 +184,17 @@ function Remove-Package([string]$Ref, [string]$Data = 'delete') {
     if ($Data -ne 'keep' -and $there -and (Get-ChildItem $info.dataDir -Force)) { throw "data folder still has files: $($info.dataDir)" }
   }
   Write-Host "OK  $Ref is gone"
+}
+
+# After the last version of a package is gone, its home variable and the
+# PATH entries that follow it must be gone too.
+function Assert-NoHome([string[]]$Names) {
+  $machinePath = [string][Microsoft.Win32.Registry]::LocalMachine.OpenSubKey('SYSTEM\CurrentControlSet\Control\Session Manager\Environment').GetValue('Path', '', 'DoNotExpandEnvironmentNames')
+  foreach ($name in $Names) {
+    if ([Environment]::GetEnvironmentVariable($name, 'Machine')) { throw "variable $name is still set" }
+    if ($machinePath -match [regex]::Escape("%$name%")) { throw "PATH still refers to %$name%" }
+  }
+  Write-Host "OK  no trace of: $($Names -join ', ')"
 }
 
 # Cleans what the machine already has of a package, the way a user would
@@ -236,6 +260,7 @@ function Test-Java {
   Update-ProcessEnv
   Assert-Shell 'java -version' 'version "17\.'       # the remaining version takes over
   Remove-Package jdk@17
+  Assert-NoHome JAVA_HOME, MAVEN_HOME, GRADLE_HOME, CATALINA_HOME
 }
 
 function Test-Lang {
@@ -263,6 +288,7 @@ function Test-Lang {
   Assert-Shell 'g++ --version' 'g\+\+'
 
   foreach ($id in 'mingw', 'php', 'go', 'python', 'node') { Remove-Package $id }
+  Assert-NoHome PYTHON_HOME, NODE_HOME, GO_HOME, PHP_HOME
 }
 
 # $Client is a command expected on PATH, or a path inside the install folder.
@@ -347,7 +373,8 @@ function Test-NoSQL {
   Update-ProcessEnv
   Assert-Healthy redis
   Assert-Ours redis-cli
-  Assert-Shell 'redis-cli -p 6379 ping' 'NOAUTH'       # no password, no entry
+  $anonymous = Invoke-Shell 'redis-cli -p 6379 ping'    # no password, no entry
+  if ($anonymous.Out -notmatch 'NOAUTH') { throw 'Redis answered a client that gave no password' }
   $env:REDISCLI_AUTH = $Password
   Assert-Shell 'redis-cli -p 6379 ping' 'PONG'
   Assert-Shell 'redis-cli -p 6379 set dn ok-42' 'OK'

@@ -65,7 +65,9 @@ jobs:
 
       - name: 安装、检查、卸载
         shell: pwsh
-        run: ./scripts/ci/integration.ps1 -Cli build/bin/devnestcli.exe -Group ${{ matrix.group }}
+        env:
+          GROUP: ${{ matrix.group }}
+        run: ./scripts/ci/integration.ps1 -Cli build/bin/devnestcli.exe -Group $env:GROUP
 
       - name: 收集日志
         if: always()
