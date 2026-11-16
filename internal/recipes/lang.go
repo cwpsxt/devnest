@@ -78,6 +78,8 @@ func pythonHomes(p platform.Platform, key string) []string {
 
 // ---- Node.js ----
 
+const npmGlobalNote = "以前用 npm install -g 装的命令都在这里，清理后要用新的 Node.js 重新装；默认不勾选"
+
 func nodeRelease(v, label string, size int64, sha string) core.Release {
 	f := "node-v" + v + "-win-x64.zip"
 	return core.Release{Version: v, Label: label, File: f, Size: size, SHA256: sha, URLs: []string{
@@ -381,6 +383,10 @@ func init() {
 			PathRx:    []string{`(?i)\\nodejs\\?$`, `(?i)\\nvm\\?$`, `(?i)\\AppData\\Roaming\\npm\\?$`, `(?i)^%NVM_(HOME|SYMLINK)%$`},
 			Dirs:      []string{`%ProgramFiles%\nodejs`, `%APPDATA%\nvm`},
 			UserDirs:  []string{`%APPDATA%\npm`, `%APPDATA%\npm-cache`, `%LOCALAPPDATA%\npm-cache`, `%LOCALAPPDATA%\pnpm`, `%LOCALAPPDATA%\Yarn`},
+			Prefixes: []core.Setting{
+				{Key: "npm_config_prefix", Note: npmGlobalNote},
+				{File: `%USERPROFILE%\.npmrc`, Key: "prefix", Note: npmGlobalNote},
+			},
 		},
 	})
 

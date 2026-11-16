@@ -41,6 +41,7 @@ export const FINDING_KINDS: Record<Finding['kind'], string> = {
   data: '数据',
   dir: '目录',
   userdir: '用户目录',
+  conf: '配置项',
   env: '环境变量',
   path: 'PATH',
   reg: '注册表',

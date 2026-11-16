@@ -75,7 +75,22 @@ type Detect struct {
 	// one of them is still on the disk and is not being removed, the key is
 	// a live registration and not a leftover, and it is not ticked.
 	RegHomes func(p platform.Platform, key string) []string
+	// Prefixes are settings naming a folder that goes on PATH as it is:
+	// npm's global folder, moved with npm_config_prefix or with `prefix` in
+	// .npmrc. The setting is removed together with the PATH entries naming
+	// that folder, so new global commands go where the new installation
+	// puts them; the folder itself is listed but not ticked.
+	Prefixes []Setting
 	Procs    []string // process image names, lower case
+}
+
+// Setting is an environment variable when File is empty, otherwise a
+// key=value line in File (%VAR% allowed).
+type Setting struct {
+	File string
+	Key  string
+	// Note is shown with the folder the setting names.
+	Note string
 }
 
 type KV struct {

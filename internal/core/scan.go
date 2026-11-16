@@ -20,7 +20,7 @@ type Finding struct {
 	ID      string `json:"id"`
 	PkgID   string `json:"pkgId"`
 	PkgName string `json:"pkgName"`
-	// Kind: process | service | uninstall | dir | data | userdir | env | path | reg
+	// Kind: process | service | uninstall | dir | data | userdir | conf | env | path | reg
 	Kind    string `json:"kind"`
 	Title   string `json:"title"`
 	Detail  string `json:"detail"`
@@ -35,9 +35,24 @@ type Finding struct {
 	scope  platform.Scope
 	cmd    string
 	subs   []string
+	key    string // the setting in the file a "conf" finding points at
 }
 
-var kindOrder = map[string]int{"process": 0, "service": 1, "uninstall": 2, "data": 3, "dir": 4, "userdir": 5, "env": 6, "path": 7, "reg": 8}
+var kindOrder = map[string]int{"process": 0, "service": 1, "uninstall": 2, "data": 3, "dir": 4, "userdir": 5, "conf": 6, "env": 7, "path": 8, "reg": 9}
+
+var envScopes = []struct {
+	s    platform.Scope
+	name string
+}{{platform.System, "系统"}, {platform.User, "用户"}}
+
+// nativePath turns the backslashes of a Windows path into slashes when the
+// program runs elsewhere (simulated mode).
+func nativePath(path string) string {
+	if filepath.Separator == '/' {
+		return strings.ReplaceAll(path, `\`, "/")
+	}
+	return path
+}
 
 // matchAny tests s against the patterns. Patterns are written for Windows
 // paths, so forward slashes (simulated mode) are turned into backslashes.
@@ -66,9 +81,7 @@ func (m *Manager) expandPattern(pat string) []string {
 		if strings.Contains(r, "%") {
 			continue // an unknown variable; nothing to look at
 		}
-		if filepath.Separator == '/' {
-			r = strings.ReplaceAll(r, `\`, "/")
-		}
+		r = nativePath(r)
 		if !strings.ContainsAny(r, "*?[") {
 			if _, err := os.Stat(r); err == nil {
 				out = append(out, r)
@@ -197,7 +210,7 @@ type scanner struct {
 }
 
 func (s *scanner) add(f Finding) {
-	key := f.Kind + "|" + strings.ToLower(f.target) + "|" + fmt.Sprint(f.scope)
+	key := f.Kind + "|" + strings.ToLower(f.target) + "|" + fmt.Sprint(f.scope) + "|" + strings.ToLower(f.key)
 	if f.Kind == "dir" || f.Kind == "data" || f.Kind == "userdir" {
 		key = "dir|" + platform.NormPath(f.target)
 	}
@@ -309,11 +322,8 @@ func (s *scanner) scanPkg(pkg *Package) {
 		}
 	}
 
-	scopes := []struct {
-		s    platform.Scope
-		name string
-	}{{platform.System, "系统"}, {platform.User, "用户"}}
-	for _, sc := range scopes {
+	folders := s.scanPrefixes(pkg)
+	for _, sc := range envScopes {
 		for _, name := range d.EnvVars {
 			v, ok := p.GetEnv(sc.s, name)
 			if !ok || m.underRoot(p.ExpandEnv(v)) {
@@ -336,7 +346,7 @@ func (s *scanner) scanPkg(pkg *Package) {
 			if m.underRoot(full) {
 				continue
 			}
-			if !matchAny(d.PathRx, entry) && !matchAny(d.PathRx, full) {
+			if !matchAny(d.PathRx, entry) && !matchAny(d.PathRx, full) && !folders[platform.NormPath(full)] {
 				continue
 			}
 			s.add(Finding{PkgID: pkg.ID, PkgName: pkg.Name, Kind: "path", Checked: true,
@@ -349,6 +359,46 @@ func (s *scanner) scanPkg(pkg *Package) {
 			s.add(Finding{PkgID: pkg.ID, PkgName: pkg.Name, Kind: "reg", Checked: true, Title: "注册表项", Detail: key, target: key})
 		}
 	}
+}
+
+// scanPrefixes lists the settings in Detect.Prefixes that are set, with the
+// folders they name, and returns those folders keyed by NormPath. A setting
+// that names a folder of ours is left alone.
+func (s *scanner) scanPrefixes(pkg *Package) map[string]bool {
+	m, p := s.m, s.m.P
+	folders := map[string]bool{}
+	for _, st := range pkg.Detect.Prefixes {
+		take := func(f Finding, value, title string) {
+			dir := p.ExpandEnv(strings.TrimSpace(value))
+			if dir == "" || m.underRoot(dir) {
+				return
+			}
+			f.PkgID, f.PkgName, f.Checked = pkg.ID, pkg.Name, true
+			s.add(f)
+			folders[platform.NormPath(dir)] = true
+			n := len(s.out)
+			s.addDir(pkg, "dir", nativePath(dir), title, false)
+			if len(s.out) > n {
+				s.out[n].Note = strings.TrimSpace(s.out[n].Note + " " + st.Note)
+			}
+		}
+		if st.File == "" {
+			for _, sc := range envScopes {
+				if v, ok := p.GetEnv(sc.s, st.Key); ok {
+					take(Finding{Kind: "env", Title: sc.name + "环境变量 " + st.Key, Detail: v, target: st.Key, scope: sc.s},
+						v, st.Key+" 指向的目录")
+				}
+			}
+			continue
+		}
+		file := nativePath(p.ExpandEnv(st.File))
+		if v := GetKeyLine(readText(file), st.Key); v != "" {
+			name := filepath.Base(file)
+			take(Finding{Kind: "conf", Title: name + " 里的 " + st.Key + " 设置", Detail: st.Key + "=" + v, target: file, key: st.Key},
+				v, name+" 里 "+st.Key+" 指向的目录")
+		}
+	}
+	return folders
 }
 
 // spareServiceFolders unticks folders that hold the program of a Windows
@@ -493,20 +543,20 @@ func (m *Manager) Scan(ids []string) ([]Finding, error) {
 	return s.out, nil
 }
 
-// backupEnv writes the current PATH values and the variables about to be
-// removed to a text file, so a wrong cleanup can be undone by hand.
+// backupEnv writes the current PATH values and the variables and settings
+// about to be removed to a text file, so a wrong cleanup can be undone by hand.
 func (m *Manager) backupEnv(items []Finding) (string, error) {
 	var b strings.Builder
 	b.WriteString("DevNest 环境变量备份 " + time.Now().Format("2006-01-02 15:04:05") + "\r\n\r\n")
-	for _, sc := range []struct {
-		s    platform.Scope
-		name string
-	}{{platform.System, "系统"}, {platform.User, "用户"}} {
+	for _, sc := range envScopes {
 		b.WriteString("[" + sc.name + " PATH]\r\n" + strings.Join(platform.PathEntries(m.P, sc.s), ";") + "\r\n\r\n")
 	}
 	for _, f := range items {
-		if f.Kind == "env" {
+		switch f.Kind {
+		case "env":
 			b.WriteString(f.Title + " = " + f.Detail + "\r\n")
+		case "conf":
+			b.WriteString(f.target + " 里的 " + f.Detail + "\r\n")
 		}
 	}
 	path := filepath.Join(m.ConfigDir(), "env-backup", "env-"+time.Now().Format("20060102-150405")+".txt")
@@ -623,6 +673,13 @@ func (m *Manager) doClean(t *Task, ctx context.Context, items []Finding) error {
 				t.Logf("删除目录 %s", f.target)
 				err = removeAll(f.target)
 			}
+		case "conf":
+			content := readText(f.target)
+			if GetKeyLine(content, f.key) == "" {
+				break
+			}
+			t.Logf("从 %s 删除 %s", f.target, f.Detail)
+			err = writeConfig(f.target, SetKeyLine(content, f.key, "=", ""))
 		case "env":
 			t.Logf("删除%s", f.Title)
 			err = p.DeleteEnv(f.scope, f.target)

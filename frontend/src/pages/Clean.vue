@@ -67,6 +67,7 @@ async function clean() {
   if (count('uninstall')) parts.push(`运行 ${count('uninstall')} 个程序自带的卸载`)
   if (count('data')) parts.push(`把 ${count('data')} 个数据目录移到备份目录（不删除）`)
   if (count('dir') + count('userdir')) parts.push(`删除 ${count('dir') + count('userdir')} 个目录`)
+  if (count('conf')) parts.push(`从配置文件里删掉 ${count('conf')} 个设置（先备份到文本文件）`)
   if (count('env')) parts.push(`删除 ${count('env')} 个环境变量（先备份到文本文件）`)
   if (count('path')) parts.push(`从 PATH 移除 ${count('path')} 个条目（先备份）`)
   if (count('reg')) parts.push(`删除 ${count('reg')} 个注册表项`)

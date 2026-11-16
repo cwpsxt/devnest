@@ -161,7 +161,7 @@ export interface Finding {
   id: string
   pkgId: string
   pkgName: string
-  kind: 'process' | 'service' | 'uninstall' | 'dir' | 'data' | 'userdir' | 'env' | 'path' | 'reg'
+  kind: 'process' | 'service' | 'uninstall' | 'dir' | 'data' | 'userdir' | 'conf' | 'env' | 'path' | 'reg'
   title: string
   detail: string
   checked: boolean

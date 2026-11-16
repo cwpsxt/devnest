@@ -219,6 +219,86 @@ func TestTheRegistrationOfAPythonThatStaysIsLeftAlone(t *testing.T) {
 	}
 }
 
+// Machines set up by hand often have npm's global folder moved, with
+// npm_config_prefix (C:\npm\prefix on the GitHub machines) or with `npm
+// config set prefix` (as many tutorials say), and that folder on PATH.
+// Cleaning Node.js takes the settings and their PATH entries, so global
+// commands go where the new Node.js puts them; the folders are only listed.
+func TestCleaningNodeTakesTheMovedNpmGlobalFolder(t *testing.T) {
+	m, sim := newSim(t)
+	machine := filepath.Join(filepath.Dir(sim.Dir("programfiles")), "npm", "prefix")
+	tutorial := filepath.Join(sim.Drives()[1].Root, "nodejs", "node_global")
+	for _, dir := range []string{machine, tutorial} {
+		os.MkdirAll(dir, 0o755)
+		os.WriteFile(filepath.Join(dir, "yarn.cmd"), []byte("sim"), 0o644)
+	}
+	sim.SetEnv(platform.System, "npm_config_prefix", machine)
+	sim.SetEnv(platform.System, "Path", systemPath(sim)+";"+machine)
+	userPath, _ := sim.GetEnv(platform.User, "Path")
+	sim.SetEnv(platform.User, "Path", userPath+";"+tutorial+string(filepath.Separator))
+	npmrc := filepath.Join(sim.Dir("home"), ".npmrc")
+	os.WriteFile(npmrc, []byte("registry=https://registry.npmmirror.com/\r\nprefix="+tutorial+"\r\ncache=D:\\nodejs\\node_cache\r\n"), 0o644)
+
+	found, err := m.Scan([]string{"node"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	find := func(kind, detail string) *core.Finding {
+		for i := range found {
+			if found[i].Kind == kind && platform.NormPath(found[i].Detail) == platform.NormPath(detail) {
+				return &found[i]
+			}
+		}
+		t.Errorf("the scan did not list %s %s", kind, detail)
+		return nil
+	}
+	for _, want := range [][2]string{{"env", machine}, {"conf", "prefix=" + tutorial}, {"path", machine}, {"path", tutorial}} {
+		if f := find(want[0], want[1]); f != nil && !f.Checked {
+			t.Errorf("%s %s should be ticked", want[0], want[1])
+		}
+	}
+	for _, dir := range []string{machine, tutorial} {
+		if f := find("dir", dir); f != nil && (f.Checked || !strings.Contains(f.Note, "npm install -g")) {
+			t.Errorf("the folder should be listed unticked, saying what is in it: %+v", *f)
+		}
+	}
+	if t.Failed() {
+		t.FailNow()
+	}
+
+	var ids []string
+	for _, f := range found {
+		if f.Checked {
+			ids = append(ids, f.ID)
+		}
+	}
+	id, err := m.Clean(ids)
+	if err != nil {
+		t.Fatal(err)
+	}
+	settle(t, m, "clean", id)
+
+	if v, ok := sim.GetEnv(platform.System, "npm_config_prefix"); ok {
+		t.Errorf("npm_config_prefix still set to %q", v)
+	}
+	for _, scope := range []platform.Scope{platform.System, platform.User} {
+		for _, e := range platform.PathEntries(sim, scope) {
+			if n := platform.NormPath(e); n == platform.NormPath(machine) || n == platform.NormPath(tutorial) {
+				t.Errorf("PATH still has %s", e)
+			}
+		}
+	}
+	rc, _ := os.ReadFile(npmrc)
+	if core.GetKeyLine(string(rc), "prefix") != "" || !strings.Contains(string(rc), "registry=") || !strings.Contains(string(rc), "cache=") {
+		t.Errorf("only the prefix line should be gone from .npmrc:\n%s", rc)
+	}
+	for _, dir := range []string{machine, tutorial} {
+		if _, err := os.Stat(filepath.Join(dir, "yarn.cmd")); err != nil {
+			t.Errorf("the unticked folder %s was deleted", dir)
+		}
+	}
+}
+
 // Wherever an old installation moved npm's global folder, pnpm and yarn go
 // into the folder of the Node.js version being installed, which is on PATH.
 func TestPnpmAndYarnGoIntoTheNodeVersionFolder(t *testing.T) {
