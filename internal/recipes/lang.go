@@ -99,7 +99,9 @@ func installNode(c *core.Ctx) error {
 	}
 	if c.OptBool("tools") {
 		c.Step("安装 pnpm 和 yarn")
-		args := []string{"install", "-g", "pnpm", "yarn", "--no-fund", "--no-audit"}
+		// --prefix keeps them in this version's folder even where an old
+		// installation moved npm's global folder (npm_config_prefix, .npmrc).
+		args := []string{"install", "-g", "pnpm", "yarn", "--prefix", c.Dir, "--no-fund", "--no-audit"}
 		if c.OptBool("mirror") {
 			args = append(args, "--registry=https://registry.npmmirror.com/")
 		}

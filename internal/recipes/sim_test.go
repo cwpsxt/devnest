@@ -3,6 +3,7 @@ package recipes
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -215,6 +216,27 @@ func TestTheRegistrationOfAPythonThatStaysIsLeftAlone(t *testing.T) {
 	settle(t, m, "clean", id)
 	if sim.RegKeyExists(key) || len(sim.RegSubKeys(key)) > 0 {
 		t.Errorf("the key is still there after cleaning")
+	}
+}
+
+// Wherever an old installation moved npm's global folder, pnpm and yarn go
+// into the folder of the Node.js version being installed, which is on PATH.
+func TestPnpmAndYarnGoIntoTheNodeVersionFolder(t *testing.T) {
+	m, sim := newSim(t)
+	var args []string
+	sim.OnRun = func(exe string, a []string, _ platform.RunOpts) {
+		if strings.EqualFold(filepath.Base(exe), "npm.cmd") {
+			args = a
+		}
+	}
+	ids, err := m.Install(core.InstallReq{ID: "node"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	settle(t, m, "install node", ids...)
+	dir := m.VersionsOf("node")[0].Dir
+	if i := slices.Index(args, "--prefix"); i < 0 || i+1 == len(args) || args[i+1] != dir {
+		t.Errorf("npm install -g should get the version folder %s as its prefix; ran npm %v", dir, args)
 	}
 }
 
