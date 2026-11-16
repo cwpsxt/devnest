@@ -1,0 +1,19 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "DevNest",
+  "outputfilename": "DevNest",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "DevNest"
+  },
+  "info": {
+    "companyName": "DevNest",
+    "productName": "DevNest 开发环境管家",
+    "productVersion": "0.1.0",
+    "copyright": "Copyright (c) 2026 DevNest",
+    "comments": "Windows 开发环境一键安装与清理工具"
+  }
+}
