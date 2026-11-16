@@ -1,0 +1,13 @@
+# build/ holds the Windows manifest and icons; un-ignore it in case a global
+# gitignore excludes build folders.
+!/build/
+/build/bin/
+node_modules
+frontend/dist
+frontend/wailsjs
+frontend/package.json.md5
+*.exe
+*.log
+.DS_Store
+.scratch
+.cursor
