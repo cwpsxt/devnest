@@ -4,7 +4,7 @@ Windows 上的开发环境一键安装与清理工具：选好软件点一下，
 
 一个 exe，不用安装，双击运行（需要管理员权限）。
 
-> **当前状态：0.1.0，还没有发布过。**
+> **当前版本：0.1.0，第一个发布版，在 [Releases](https://github.com/cwpsxt/devnest/releases) 页下载。**
 > 真机安装测试（`integration` 工作流）的 15 组已在 GitHub 的 Windows Server 2025 机器上全部通过：每组真装，检查命令、服务、端口和密码，再卸载并检查残留。普通的 Windows 10 / 11 上还没有大范围用过，建议先在不重要的机器上试用。
 
 ## 能做什么
@@ -35,7 +35,7 @@ Windows 上的开发环境一键安装与清理工具：选好软件点一下，
 
 ## 下载与使用
 
-1. 在仓库的 Releases 页下载 `DevNest.exe`（没有正式版时，到 Actions 页最近一次 `build` 运行的页面底部下载 `DevNest-windows-amd64`）。
+1. 在仓库的 [Releases](https://github.com/cwpsxt/devnest/releases) 页下载最新版的 `DevNest.exe`。想用还没发布的最新改动，可以到 Actions 页最近一次 `build` 运行的页面底部下载 `DevNest-windows-amd64`（要登录 GitHub）。
 2. 双击运行，在系统弹出的权限提示里点「是」。
 3. 第一次打开先到「设置」页确认安装目录。默认选剩余空间最大的非系统盘（比如 `D:\DevNest`），只有一个盘时是 `C:\DevNest`；路径里不能有空格和中文，装了软件之后不能再改。
 4. 机器上有旧的安装时，先到「一键清理」页扫描并清理，再到「软件库」或首页的套装安装。
