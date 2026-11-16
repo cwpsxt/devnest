@@ -17,9 +17,17 @@ func npmBinary(dir, file string) string {
 
 // ---- Python ----
 
-func pythonRelease(v, label string, size int64) core.Release {
-	f := "python-" + v + "-amd64.exe"
-	return core.Release{Version: v, Label: label, File: f, Size: size, URLs: []string{
+// pythonRelease is python.org's own package for the Python install manager:
+// the complete interpreter (pip, venv, tkinter, headers) as a plain zip.
+// Unlike the installer it registers nothing with Windows, so it cannot
+// collide with a Python that is already on the machine. The installer did,
+// on GitHub's test machines, which come with several Pythons: it reported
+// success and left the chosen folder without a python.exe. The checksums are
+// the ones in
+// https://www.python.org/ftp/python/index-windows.json.
+func pythonRelease(v, label string, size int64, sha string) core.Release {
+	f := "python-" + v + "-amd64.zip"
+	return core.Release{Version: v, Label: label, File: f, Size: size, SHA256: sha, URLs: []string{
 		npmBinary("python/"+v, f),
 		"https://mirrors.huaweicloud.com/python/" + v + "/" + f,
 		"https://www.python.org/ftp/python/" + v + "/" + f,
@@ -27,42 +35,33 @@ func pythonRelease(v, label string, size int64) core.Release {
 }
 
 func installPython(c *core.Ctx) error {
-	minor := core.MinorKey(c.Rel.Version)
-	if c.P.RegKeyExists(`HKLM\SOFTWARE\Python\PythonCore\` + minor + `\InstallPath`) {
-		return fmt.Errorf("这台电脑上已经有一份 Python %s（不是本工具装的）。同一个小版本只能装一份，请先到“环境清理”里把它清掉", minor)
-	}
-	file, err := c.Fetch()
-	if err != nil {
+	if err := unzipInstall(c); err != nil {
 		return err
-	}
-	if err := c.CheckSignature(file); err != nil {
-		return err
-	}
-	c.Step("运行安装程序")
-	err = c.Installer(file, []int{3010}, "/quiet", "InstallAllUsers=1", "TargetDir="+c.Dir,
-		"PrependPath=0", "AssociateFiles=0", "Shortcuts=0", "Include_launcher=0", "InstallLauncherAllUsers=0",
-		"Include_test=0", "Include_doc=0", "Include_tcltk=1", "Include_pip=1", "Include_dev=1")
-	if err != nil {
-		return fmt.Errorf("%w（安装程序自己的日志在 %%TEMP%% 目录下，文件名以 Python 开头）", err)
 	}
 	c.Step("配置 pip")
+	// The package has pip as a module but no pip.exe. Installing pip once
+	// more, from the wheel that comes with Python (no network needed), writes
+	// the commands into Scripts. A PYTHONHOME left behind by another Python
+	// would send this one looking for its library in the wrong place.
+	opts := platform.RunOpts{Timeout: 5 * time.Minute, Env: map[string]string{"PYTHONHOME": "", "PYTHONPATH": ""}}
+	_, err := c.RunOpts(opts, c.J("python.exe"), "-m", "pip", "install", "--isolated", "--force-reinstall", "--no-deps",
+		"--no-index", "--no-warn-script-location", "--disable-pip-version-check",
+		"--find-links", c.J("Lib", "ensurepip", "_bundled"), "pip")
+	if err != nil {
+		return fmt.Errorf("生成 pip 命令失败：%w", err)
+	}
 	if c.OptBool("mirror") {
 		c.UseMirror("pip")
 	}
 	if err := c.Check(c.J("python.exe"), "--version"); err != nil {
 		return err
 	}
+	if err := c.Check(c.J("Scripts", "pip.exe"), "--version"); err != nil {
+		return err
+	}
 	c.Info("命令", "python、pip（新开一个命令行窗口后生效）")
 	c.Info("安装位置", c.Dir)
 	return nil
-}
-
-func uninstallPython(c *core.Ctx) error {
-	found, err := c.UninstallProgram(`^Python ` + regexp.QuoteMeta(c.Inst.Version) + ` \(64-bit\)$`)
-	if !found && err == nil {
-		c.Logf("Windows 的已安装程序列表里没有这份 Python，直接删除文件")
-	}
-	return err
 }
 
 // pythonHomes reads the install folders registered below a PythonCore key:
@@ -332,18 +331,20 @@ func init() {
 		ID: "python", Name: "Python", Category: "lang",
 		Desc:     "Python 解释器和 pip。可以同时装多个版本并一键切换",
 		Homepage: "https://www.python.org/",
-		Notes:    []string{"用的是 python.org 的官方安装程序（从国内镜像下载，运行前核对数字签名）。"},
+		Notes: []string{
+			"用的是 python.org 官方的免安装包（官方新的 Python 安装管理器用的就是这一份），带 pip、venv、tkinter，从国内镜像下载并核对官方公布的校验值。",
+			"解压即用，不写注册表，和电脑上已有的 Python 互不影响；因此不带 py 启动器，用 python 命令即可。",
+		},
 		Releases: []core.Release{
-			pythonRelease("3.14.10", "3.14.10（推荐）", 33498520),
-			pythonRelease("3.15.2", "3.15.2（最新）", 37694360),
-			pythonRelease("3.13.17", "3.13.17", 29941280),
+			pythonRelease("3.14.10", "3.14.10（推荐）", 32987388, "cc28026a650970cc1570bb127312f1f9634eb67abfe157ae6ca1acbbc627d091"),
+			pythonRelease("3.15.2", "3.15.2（最新）", 37272560, "d6da9c33a32cf111e1d52b91392c83ea6a808545b646e0557f66cb6d9ee76785"),
+			pythonRelease("3.13.17", "3.13.17", 31162518, "b26ca4b4ee51e157836049934d2b8eabd55939be296f3130254251b6df96ec2f"),
 		},
 		Options: []core.Option{mirrorOption("pip 用清华源")},
 		Multi:   true, HomeVar: "PYTHON_HOME", PathSubs: []string{"", "Scripts"},
-		Probe:     []string{"python.exe", "Scripts/pip.exe"},
-		Steps:     2,
-		Install:   installPython,
-		Uninstall: uninstallPython,
+		Probe:   []string{"python.exe", "Scripts/pip.exe"},
+		Steps:   2,
+		Install: installPython,
 		Detect: core.Detect{
 			Uninstall: []string{`^Python \d+\.\d+\.\d+\S* \((64|32)-bit\)$`, `^Python Launcher$`},
 			EnvVars:   []string{"PYTHON_HOME", "PYTHONHOME", "PYTHONPATH"},
