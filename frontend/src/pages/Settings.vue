@@ -4,7 +4,7 @@ import Icon from '../components/Icon.vue'
 import { api, errText } from '../api'
 import { busy, confirmDialog, fail, refreshCatalog, refreshOverview, state, toast } from '../store'
 import type { Settings } from '../types'
-import { fmtBytes } from '../util'
+import { PRODUCT_NAME, STUDIO, fmtBytes } from '../util'
 
 const saved = ref<Settings | null>(null)
 const form = reactive<Settings>({ root: '', githubProxy: '', desktopShortcuts: true })
@@ -155,7 +155,11 @@ async function open(path: string) {
     <h2 style="margin-bottom: 10px">关于</h2>
     <dl class="kv selectable">
       <dt>版本</dt>
-      <dd>DevNest {{ state.overview?.version }}</dd>
+      <dd>{{ PRODUCT_NAME }} {{ state.overview?.version }}</dd>
+      <dt>作者</dt>
+      <dd>{{ STUDIO.name }}</dd>
+      <dt>备案号</dt>
+      <dd><a @click="api.openUrl(STUDIO.icpUrl).catch(fail)">{{ STUDIO.icp }}</a></dd>
       <dt>系统</dt>
       <dd>{{ state.overview?.os }}</dd>
       <dt>权限</dt>

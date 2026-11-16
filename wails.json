@@ -7,13 +7,13 @@
   "frontend:dev:watcher": "npm run dev",
   "frontend:dev:serverUrl": "auto",
   "author": {
-    "name": "DevNest"
+    "name": "城关区智牍网络技术工作室（个体工商户）"
   },
   "info": {
-    "companyName": "DevNest",
-    "productName": "DevNest 开发环境管家",
+    "companyName": "城关区智牍网络技术工作室（个体工商户）",
+    "productName": "小熙 DevNest 开发环境管家",
     "productVersion": "0.1.0",
-    "copyright": "Copyright (c) 2026 DevNest",
+    "copyright": "Copyright (c) 2026 城关区智牍网络技术工作室（个体工商户）",
     "comments": "Windows 开发环境一键安装与清理工具"
   }
 }

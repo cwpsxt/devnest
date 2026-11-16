@@ -13,6 +13,7 @@ import Tasks from './pages/Tasks.vue'
 import Settings from './pages/Settings.vue'
 import { activeTasks, answerConfirm, dismissToast, go, openLog, runningTask, start, state } from './store'
 import type { Page } from './store'
+import { PRODUCT_NAME, STUDIO } from './util'
 
 const NAV: { id: Page; name: string; icon: string }[] = [
   { id: 'home', name: '概览', icon: 'home' },
@@ -36,7 +37,7 @@ onMounted(start)
 <template>
   <div v-if="state.fatal" class="center-screen">
     <div>
-      <h1 style="margin-bottom: 8px; color: var(--text)">DevNest 没能启动</h1>
+      <h1 style="margin-bottom: 8px; color: var(--text)">{{ PRODUCT_NAME }} 没能启动</h1>
       <p class="selectable">{{ state.fatal }}</p>
     </div>
   </div>
@@ -48,9 +49,9 @@ onMounted(start)
   <div v-else class="shell">
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand-mark">D</div>
+        <div class="brand-mark">熙</div>
         <div>
-          <div class="brand-name">DevNest</div>
+          <div class="brand-name">{{ PRODUCT_NAME }}</div>
           <div class="brand-sub">开发环境管家</div>
         </div>
       </div>
@@ -62,6 +63,7 @@ onMounted(start)
       <div class="sidebar-foot">
         <div>版本 {{ state.overview?.version }}</div>
         <div>{{ state.overview?.os }}</div>
+        <a class="studio" title="关于作者" @click="go('settings')">{{ STUDIO.name }}</a>
       </div>
     </aside>
 

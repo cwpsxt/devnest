@@ -29,7 +29,7 @@ func main() {
 
 	app := NewApp()
 	err := wails.Run(&options.App{
-		Title:            "DevNest 开发环境管家",
+		Title:            "小熙 DevNest 开发环境管家",
 		Width:            1280,
 		Height:           820,
 		MinWidth:         1080,

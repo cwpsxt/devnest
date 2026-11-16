@@ -34,6 +34,14 @@ export const CATEGORIES: { id: PackageView['category']; name: string }[] = [
 
 export const categoryName = (id: string) => CATEGORIES.find((c) => c.id === id)?.name ?? id
 
+export const PRODUCT_NAME = '小熙 DevNest'
+
+export const STUDIO = {
+  name: '城关区智牍网络技术工作室（个体工商户）',
+  icp: '陇ICP备2026010995号-1',
+  icpUrl: 'https://beian.miit.gov.cn/',
+}
+
 export const FINDING_KINDS: Record<Finding['kind'], string> = {
   process: '进程',
   service: '服务',

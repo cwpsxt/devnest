@@ -194,6 +194,18 @@ code,
   line-height: 1.7;
 }
 
+.sidebar-foot .studio {
+  display: block;
+  margin-top: 6px;
+  line-height: 1.5;
+  color: inherit;
+  cursor: pointer;
+}
+
+.sidebar-foot .studio:hover {
+  color: #c6cfe2;
+}
+
 .main {
   display: flex;
   flex-direction: column;
