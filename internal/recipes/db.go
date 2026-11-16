@@ -222,6 +222,10 @@ func installNeo4j(c *core.Ctx) error {
 		s = setConf(s, "server.directories.data", "=", core.Slash(c.DataDir))
 		s = setConf(s, "server.http.listen_address", "=", fmt.Sprintf(":%d", http))
 		s = setConf(s, "server.bolt.listen_address", "=", fmt.Sprintf(":%d", bolt))
+		// "neo4j console" refuses to start while a Windows service of this
+		// name is running, taking it for a second copy of itself. The default
+		// name is neo4j, which is the very service that runs the console here.
+		s = setConf(s, "server.windows_service_name", "=", "neo4j-native")
 		if c.OptBool("lan") {
 			s = setConf(s, "server.default_listen_address", "=", "0.0.0.0")
 		}
