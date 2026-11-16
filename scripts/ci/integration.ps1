@@ -264,6 +264,9 @@ function Test-Java {
 }
 
 function Test-Lang {
+  # The machine has its own Python of the same series, which rules out a
+  # second copy; cleaning first is what the tool tells the user to do.
+  Clear-Existing node, python, go, php, mingw
   Invoke-Cli install node
   Invoke-Cli install python
   Invoke-Cli install go
@@ -390,6 +393,7 @@ function Test-NoSQL {
 }
 
 function Test-Web {
+  Clear-Existing nginx, rabbitmq, erlang     # the machine has an Nginx service of its own
   Invoke-Cli install nginx port=8088
   Invoke-Cli install rabbitmq
 
