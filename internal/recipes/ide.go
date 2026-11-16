@@ -58,8 +58,12 @@ func uninstallJetBrains(c *core.Ctx) error {
 	if !c.Exists(un) {
 		return nil
 	}
-	// "_?=" keeps the NSIS uninstaller in the foreground so we can wait.
-	_, err := c.RunOpts(platform.RunOpts{Timeout: 15 * time.Minute}, un, "/S", "_?="+c.Dir)
+	// "_?=" keeps the NSIS uninstaller in the foreground so we can wait. It
+	// has to name the folder the uninstaller itself is in, which here is bin:
+	// the script works out the installation from there, and given the
+	// installation folder instead it goes looking one level too high and
+	// never comes back.
+	_, err := c.RunOpts(platform.RunOpts{Timeout: 15 * time.Minute}, un, "/S", "_?="+filepath.Dir(un))
 	return err
 }
 
