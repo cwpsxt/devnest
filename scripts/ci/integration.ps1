@@ -264,8 +264,8 @@ function Test-Java {
 }
 
 function Test-Lang {
-  # The machine has its own Python of the same series, which rules out a
-  # second copy; cleaning first is what the tool tells the user to do.
+  # The machine has its own Node.js, PHP and MinGW, and several Pythons that
+  # only the registry knows about (those stay, with their registration).
   Clear-Existing node, python, go, php, mingw
   Invoke-Cli install node
   Invoke-Cli install python
@@ -282,7 +282,9 @@ function Test-Lang {
   Assert-Shell 'node -e "console.log(6*7)"' '(?m)^42'
   Assert-Shell 'python --version' '(?m)^Python 3\.'
   Assert-Shell 'pip --version' '(?m)^pip \d'
-  Assert-Shell 'python -c "import ssl, sqlite3; print(6*7)"' '(?m)^42'
+  Assert-Shell 'python -c "import ssl, sqlite3, ctypes, tkinter; print(6*7)"' '(?m)^42'
+  $venv = Join-Path ([IO.Path]::GetTempPath()) 'dn-venv'
+  Assert-Shell "python -m venv ""$venv"" && ""$venv\Scripts\python.exe"" -m pip --version" '(?m)^pip \d'
   Assert-Shell 'go version' '(?m)^go version go1\.'
   Assert-Shell 'php -v' '(?m)^PHP 8\.'
   Assert-Shell 'php -m' 'curl[\s\S]*mbstring[\s\S]*openssl[\s\S]*pdo_mysql'
