@@ -153,6 +153,8 @@ func quietUninstall(e platform.UninstallEntry) (cmd string, ok bool) {
 		return exe + " uninstall --quiet", true
 	case strings.Contains(strings.ToLower(rest), "/uninstall"): // WiX bundles (Python, VC++)
 		return exe + " " + rest + " /quiet /norestart", true
+	case strings.Contains(low, "uninstall-postgresql"): // InstallBuilder (the EDB installer)
+		return exe + " --mode unattended", true
 	case strings.Contains(low, "uninst"): // NSIS
 		return strings.TrimSpace(exe+" "+rest) + " /S", true
 	}
@@ -320,7 +322,13 @@ func (s *scanner) scanPkg(pkg *Package) {
 			s.add(Finding{PkgID: pkg.ID, PkgName: pkg.Name, Kind: "env", Checked: true,
 				Title: sc.name + "环境变量 " + name, Detail: v, target: name, scope: sc.s})
 			if fi, err := os.Stat(v); err == nil && fi.IsDir() {
-				s.addDir(pkg, "dir", v, name+" 指向的目录", matchAny(d.PathRx, v))
+				// M2 and the like point at the bin folder; what there is to
+				// remove is the installation around it.
+				home := v
+				if strings.EqualFold(filepath.Base(home), "bin") {
+					home = filepath.Dir(home)
+				}
+				s.addDir(pkg, "dir", home, name+" 指向的目录", matchAny(d.PathRx, v))
 			}
 		}
 		for _, entry := range platform.PathEntries(p, sc.s) {
@@ -341,6 +349,68 @@ func (s *scanner) scanPkg(pkg *Package) {
 			s.add(Finding{PkgID: pkg.ID, PkgName: pkg.Name, Kind: "reg", Checked: true, Title: "注册表项", Detail: key, target: key})
 		}
 	}
+}
+
+// spareServiceFolders unticks folders that hold the program of a Windows
+// service nothing on the list is going to remove. Such a folder is not a
+// leftover: something else still runs from it (Docker Engine in
+// C:\Program Files\Docker, when the rules only know Docker Desktop).
+// A package with an uninstaller on the list is left alone, because the
+// uninstaller usually takes its service with it; the cleaner checks again
+// before it deletes.
+func (s *scanner) spareServiceFolders() {
+	listed, uninstalls := map[string]bool{}, map[string]bool{}
+	for _, f := range s.out {
+		switch {
+		case f.Kind == "service":
+			listed[strings.ToLower(f.target)] = true
+		case f.Kind == "uninstall" && f.Checked:
+			uninstalls[f.PkgID] = true
+		}
+	}
+	for i := range s.out {
+		f := &s.out[i]
+		if !f.Checked || f.Kind != "dir" || uninstalls[f.PkgID] {
+			continue
+		}
+		for _, sv := range s.services {
+			if listed[strings.ToLower(sv.Name)] || !isUnder(exeOf(sv.BinaryPath), f.target) {
+				continue
+			}
+			f.Checked = false
+			f.Note = strings.TrimSpace(f.Note + " Windows 服务 " + sv.Name + " 的程序在这个目录里，而它不在清理清单中，所以默认不勾选")
+			break
+		}
+	}
+}
+
+// serviceUnder names a Windows service whose program lies in the folder.
+func serviceUnder(p platform.Platform, dir string) string {
+	services, _ := p.Services()
+	for _, sv := range services {
+		if isUnder(exeOf(sv.BinaryPath), dir) {
+			return sv.Name
+		}
+	}
+	return ""
+}
+
+// waitKeyGone waits for an "installed programs" row to disappear.
+// Uninstallers built with NSIS or InstallBuilder hand over to a copy of
+// themselves and return at once, so their exit does not mean they are done.
+func waitKeyGone(ctx context.Context, p platform.Platform, key string, most time.Duration) error {
+	deadline := time.Now().Add(most)
+	for p.RegKeyExists(key) {
+		if time.Now().After(deadline) {
+			return errors.New("卸载程序已经运行，但「已安装程序」里的条目还在；可能需要重启，或在 Windows「应用和功能」里手动卸载")
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(time.Second):
+		}
+	}
+	return nil
 }
 
 // Scan looks for existing installations of the given packages (all packages
@@ -368,6 +438,7 @@ func (m *Manager) Scan(ids []string) ([]Finding, error) {
 		}
 		s.scanPkg(pkg)
 	}
+	s.spareServiceFolders()
 	pkgOrder := map[string]int{}
 	for i, pkg := range Packages() {
 		pkgOrder[pkg.ID] = i
@@ -474,8 +545,16 @@ func (m *Manager) doClean(t *Task, ctx context.Context, items []Finding) error {
 			}
 			t.Logf("静默卸载：%s", f.cmd)
 			// 3010 = reboot needed, 1605 = already gone.
-			_, err = p.RunShell(ctx, f.cmd, platform.RunOpts{Timeout: 20 * time.Minute, OKCodes: []int{3010, 1605, 1614},
+			var res platform.RunResult
+			res, err = p.RunShell(ctx, f.cmd, platform.RunOpts{Timeout: 20 * time.Minute, OKCodes: []int{3010, 1605, 1614},
 				OnLine: func(l string) { t.Logf("  %s", l) }})
+			if err == nil && (res.ExitCode == 1605 || res.ExitCode == 1614) {
+				// Windows Installer no longer knows the product; only the row is left.
+				p.RegDeleteTree(f.target)
+			}
+			if err == nil {
+				err = waitKeyGone(ctx, p, f.target, 3*time.Minute)
+			}
 		case "data":
 			dest := filepath.Join(backupDir, f.PkgID, filepath.Base(f.target))
 			t.Logf("数据目录 %s 移到备份 %s", f.target, dest)
@@ -488,6 +567,12 @@ func (m *Manager) doClean(t *Task, ctx context.Context, items []Finding) error {
 			}
 			if m.protected(f.target) || m.underRoot(f.target) {
 				err = errors.New("受保护的目录，拒绝删除")
+				break
+			}
+			// Services on the list are gone by now; one that is still here
+			// is something else running from this folder.
+			if name := serviceUnder(p, f.target); name != "" {
+				err = fmt.Errorf("Windows 服务 %s 还在用这个目录，没有删除", name)
 				break
 			}
 			killUnder(p, f.target, t.Logf)

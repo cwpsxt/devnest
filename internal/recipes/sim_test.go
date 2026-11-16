@@ -129,6 +129,50 @@ func TestScanFindsAndCleansTheSeededMachine(t *testing.T) {
 	}
 }
 
+// A folder a Windows service still runs from is not a leftover, whatever the
+// rules say about its name: the machines GitHub runs the tests on have Docker
+// Engine in the folder the rules know as Docker Desktop's.
+func TestAFolderAServiceRunsFromIsLeftAlone(t *testing.T) {
+	m, sim := newSim(t)
+	pf, _ := sim.GetEnv(platform.System, "ProgramFiles")
+	dockerd := filepath.Join(pf, "Docker", "dockerd.exe")
+	os.MkdirAll(filepath.Dir(dockerd), 0o755)
+	os.WriteFile(dockerd, []byte("sim"), 0o644)
+	sim.SimRegisterService("docker", `"`+dockerd+`" --run-service`)
+
+	found, err := m.Scan([]string{"docker"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var dir *core.Finding
+	for i := range found {
+		if found[i].Kind == "dir" && found[i].Detail == filepath.Dir(dockerd) {
+			dir = &found[i]
+		}
+	}
+	if dir == nil {
+		t.Fatalf("the scan did not list the folder at all: %+v", found)
+	}
+	if dir.Checked || !strings.Contains(dir.Note, "docker") {
+		t.Errorf("the folder should be unticked and say which service uses it: %+v", *dir)
+	}
+
+	// Ticking it by hand does not get it deleted either.
+	id, err := m.Clean([]string{dir.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.WaitIdle()
+	for _, task := range m.Tasks() {
+		if task.ID == id && task.State == "done" {
+			t.Errorf("cleaning reported success:\n%s", strings.Join(m.TaskLog(id), "\n"))
+		}
+	}
+	if _, err := os.Stat(dockerd); err != nil {
+		t.Errorf("the service's program was deleted: %v", err)
+	}
+}
+
 func TestCleanRefusesIDsNotFromTheLastScan(t *testing.T) {
 	m, _ := newSim(t)
 	if _, err := m.Clean([]string{"made-up"}); err == nil {

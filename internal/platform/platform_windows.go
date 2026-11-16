@@ -737,7 +737,10 @@ func (w *winPlatform) finish(ctx context.Context, cmd *exec.Cmd, label string, o
 	err := cmd.Run()
 	lw.flush()
 	res := RunResult{Output: lw.output()}
-	if err == nil {
+	// ErrWaitDelay: the program itself ended normally, but something it
+	// started still holds the output pipe. Uninstallers that hand over to a
+	// copy of themselves do this.
+	if err == nil || errors.Is(err, exec.ErrWaitDelay) {
 		return res, nil
 	}
 	if ctx.Err() != nil {
