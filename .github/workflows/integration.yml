@@ -1,0 +1,88 @@
+# 真机测试：在 GitHub 的 Windows 机器上真的下载、安装、启动、连接、卸载每一类软件。
+# 模拟测试只能证明流程和记账没错，安装配方对不对只有这里能证明。
+# 每一组在一台全新的机器上跑，互不影响；具体检查了什么见 scripts/ci/integration.ps1。
+name: integration
+
+on:
+  workflow_dispatch:
+    inputs:
+      groups:
+        description: '只跑这些组（JSON 数组，例如 ["mysql","java"]）；留空跑全部'
+        required: false
+        default: ''
+  push:
+    branches: [main]
+    paths:
+      - 'internal/**'
+      - 'cmd/**'
+      - 'scripts/ci/**'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/integration.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: integration-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cli:
+    name: 编译命令行版
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go build -trimpath -o build/bin/devnestcli.exe ./cmd/devnestcli
+      - uses: actions/upload-artifact@v4
+        with:
+          name: devnestcli
+          path: build/bin/devnestcli.exe
+          if-no-files-found: error
+          retention-days: 3
+
+  install:
+    name: ${{ matrix.group }}
+    needs: cli
+    runs-on: windows-latest
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        group: ${{ fromJSON(inputs.groups || '["scan","clean","mirrors","java","lang","mysql","mariadb","postgres","nosql","web","kafka","search","tools","jetbrains"]') }}
+    env:
+      # 这些机器在海外：先试软件官方地址，再试国内镜像
+      DEVNEST_SOURCES: official
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: devnestcli
+          path: build/bin
+
+      - name: 安装、检查、卸载
+        shell: pwsh
+        run: ./scripts/ci/integration.ps1 -Cli build/bin/devnestcli.exe -Group ${{ matrix.group }}
+
+      - name: 收集日志
+        if: always()
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path collected | Out-Null
+          foreach ($dir in 'C:\ProgramData\DevNest\logs', 'C:\ProgramData\DevNest\env-backup', 'C:\DevNest\logs') {
+            if (Test-Path $dir) { Copy-Item $dir -Destination (Join-Path collected ($dir -replace '[:\\]+', '_')) -Recurse -ErrorAction SilentlyContinue }
+          }
+          foreach ($file in 'C:\ProgramData\DevNest\state.json', 'C:\ProgramData\DevNest\settings.json') {
+            if (Test-Path $file) { Copy-Item $file -Destination collected -ErrorAction SilentlyContinue }
+          }
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: logs-${{ matrix.group }}
+          path: collected
+          if-no-files-found: ignore
+          retention-days: 14

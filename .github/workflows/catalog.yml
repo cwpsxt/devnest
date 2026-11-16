@@ -1,0 +1,24 @@
+# 下载地址体检：每周检查一次软件目录里的每个下载地址还在不在、文件大小变没变。
+# 只向每个地址要 1 个字节，不会真的下载。某个版本的所有地址都失效时这里会变红，
+# 说明上游已经换了新版本，该更新 internal/recipes 里的版本号了。
+name: catalog
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: 检查下载地址
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go run ./cmd/catalogcheck
