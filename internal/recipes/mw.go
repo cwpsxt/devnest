@@ -374,6 +374,26 @@ xpack.security.enabled: false`, c.DataDir, c.J("logs"), port, transport))
 
 // ---- Nacos ----
 
+// nacosProps fills in application.properties: the ports, and the three
+// secrets Nacos 3 refuses to start without. The file ships with those keys
+// present and empty (startup.cmd asks for them, and it is not used here).
+// Values that are already there are kept, so a reinstall over existing data
+// does not invalidate anything.
+func nacosProps(s string, port, console int) string {
+	s = setConf(s, "nacos.server.main.port", "=", fmt.Sprint(port))
+	s = setConf(s, "nacos.console.port", "=", fmt.Sprint(console))
+	for key, gen := range map[string]func() string{
+		"nacos.core.auth.plugin.nacos.token.secret.key": func() string { return base64.StdEncoding.EncodeToString(randomBytes(48)) },
+		"nacos.core.auth.server.identity.key":           func() string { return "devnest" },
+		"nacos.core.auth.server.identity.value":         func() string { return hex.EncodeToString(randomBytes(16)) },
+	} {
+		if core.GetKeyLine(s, key) == "" {
+			s = setConf(s, key, "=", gen())
+		}
+	}
+	return s
+}
+
 func installNacos(c *core.Ctx) error {
 	const svc = "Nacos"
 	port, console := c.OptInt("port"), c.OptInt("console")
@@ -403,21 +423,7 @@ func installNacos(c *core.Ctx) error {
 			return err
 		}
 	}
-	err = c.Edit(props, func(s string) string {
-		s = setConf(s, "nacos.server.main.port", "=", fmt.Sprint(port))
-		s = setConf(s, "nacos.console.port", "=", fmt.Sprint(console))
-		// Nacos 3 refuses to start until these three are filled in.
-		for key, gen := range map[string]func() string{
-			"nacos.core.auth.plugin.nacos.token.secret.key": func() string { return base64.StdEncoding.EncodeToString(randomBytes(48)) },
-			"nacos.core.auth.server.identity.key":           func() string { return "devnest" },
-			"nacos.core.auth.server.identity.value":         func() string { return hex.EncodeToString(randomBytes(16)) },
-		} {
-			if core.GetKeyLine(s, key) == "" {
-				s = setConf(s, key, "=", gen())
-			}
-		}
-		return s
-	})
+	err = c.Edit(props, func(s string) string { return nacosProps(s, port, console) })
 	if err != nil {
 		return err
 	}

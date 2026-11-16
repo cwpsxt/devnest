@@ -541,6 +541,53 @@ func TestNginxListenRewritesOnlyTheFirstActiveLine(t *testing.T) {
 	}
 }
 
+// The lines are the ones Nacos 3.2.0 ships in application.properties.
+func TestNacosPropsFillsInTheEmptySecrets(t *testing.T) {
+	shipped := strings.Join([]string{
+		"nacos.server.main.port=8848",
+		"nacos.console.port=8080",
+		"### The two properties is the white list for auth and used by identity the request from other server.",
+		"nacos.core.auth.server.identity.key=",
+		"nacos.core.auth.server.identity.value=",
+		"",
+		"### The token expiration in seconds:",
+		"nacos.core.auth.plugin.nacos.token.expire.seconds=18000",
+		"### The default token (Base64 string):",
+		"#nacos.core.auth.plugin.nacos.token.secret.key=VGhpc0lzTXlDdXN0b21TZWNyZXRLZXkwMTIzNDU2Nzg=",
+		"nacos.core.auth.plugin.nacos.token.secret.key=",
+		"",
+	}, "\r\n")
+	keys := []string{
+		"nacos.core.auth.server.identity.key",
+		"nacos.core.auth.server.identity.value",
+		"nacos.core.auth.plugin.nacos.token.secret.key",
+	}
+	out := nacosProps(shipped, 8850, 8089)
+	for _, key := range keys {
+		v := core.GetKeyLine(out, key)
+		if v == "" || strings.Contains(v, "nacos.") || strings.Contains(v, "#") {
+			t.Errorf("%s was not filled in: %q", key, v)
+		}
+		if n := strings.Count(out, "\n"+key+"="); n != 1 {
+			t.Errorf("%s appears %d times", key, n)
+		}
+	}
+	if !strings.Contains(out, "nacos.server.main.port=8850\r\n") || !strings.Contains(out, "nacos.console.port=8089\r\n") {
+		t.Errorf("ports were not set:\n%s", out)
+	}
+	if !strings.Contains(out, "token.expire.seconds=18000") {
+		t.Errorf("an unrelated line was lost:\n%s", out)
+	}
+	// A second run keeps what is there: changing the secrets under existing
+	// data would lock out everything that already has a token.
+	again := nacosProps(out, 8850, 8089)
+	for _, key := range keys {
+		if core.GetKeyLine(again, key) != core.GetKeyLine(out, key) {
+			t.Errorf("%s changed on the second run", key)
+		}
+	}
+}
+
 func TestKafkaUUID(t *testing.T) {
 	for i := 0; i < 200; i++ {
 		id := kafkaUUID()

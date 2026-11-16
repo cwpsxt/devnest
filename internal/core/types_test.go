@@ -87,3 +87,14 @@ func TestCompareVersions(t *testing.T) {
 		}
 	}
 }
+
+func TestGetKeyLineStaysOnItsLine(t *testing.T) {
+	conf := "a.key=\r\na.value=\r\n\r\n### a comment\r\n#b.key=old\r\nb.key=\r\nc.key = \"quoted\"\r\nd.key=plain\n// e: spaced\n"
+	for key, want := range map[string]string{
+		"a.key": "", "a.value": "", "b.key": "", "c.key": "quoted", "d.key": "plain", "// e:": "spaced", "missing": "",
+	} {
+		if got := GetKeyLine(conf, key); got != want {
+			t.Errorf("GetKeyLine(%q) = %q, want %q", key, got, want)
+		}
+	}
+}

@@ -91,9 +91,11 @@ func SetKeyLine(content, key, sep, value string) string {
 	return strings.Join(out, nl) + nl
 }
 
-// GetKeyLine reads the value written by SetKeyLine.
+// GetKeyLine reads the value written by SetKeyLine. A key with nothing after
+// it has the value ""; the blanks are matched with [ \t] and not \s, which
+// would run on into the next line and return that instead.
 func GetKeyLine(content, key string) string {
-	rx := regexp.MustCompile(`(?m)^\s*` + regexp.QuoteMeta(key) + `\s*(?:=|\s)\s*"?([^"\r\n]*?)"?\s*$`)
+	rx := regexp.MustCompile(`(?m)^[ \t]*` + regexp.QuoteMeta(key) + `[ \t]*(?:=|[ \t])[ \t]*"?([^"\r\n]*?)"?[ \t]*\r?$`)
 	if m := rx.FindStringSubmatch(content); m != nil {
 		return strings.TrimSpace(m[1])
 	}
