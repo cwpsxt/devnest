@@ -549,6 +549,10 @@ func init() {
 				"https://mirrors.aliyun.com/apache/kafka/4.4.0/" + kafka,
 				"https://mirrors.tuna.tsinghua.edu.cn/apache/kafka/4.4.0/" + kafka,
 				"https://archive.apache.org/dist/kafka/4.4.0/" + kafka,
+				// The publisher's own address comes last. archive keeps every
+				// release for good but is slow (a quarter of an hour for this
+				// file); dlcdn is fast and only has the current releases.
+				"https://dlcdn.apache.org/kafka/4.4.0/" + kafka,
 			}}},
 		Options: []core.Option{
 			portOption("port", "端口", "9092", "Kafka"),

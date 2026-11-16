@@ -180,6 +180,7 @@ func init() {
 				"https://mirrors.tuna.tsinghua.edu.cn/apache/tomcat/tomcat-" + major + "/v" + t.ver + "/bin/" + file,
 				"https://mirrors.aliyun.com/apache/tomcat/tomcat-" + major + "/v" + t.ver + "/bin/" + file,
 				"https://archive.apache.org/dist/tomcat/tomcat-" + major + "/v" + t.ver + "/bin/" + file,
+				"https://dlcdn.apache.org/tomcat/tomcat-" + major + "/v" + t.ver + "/bin/" + file,
 			},
 		})
 	}
